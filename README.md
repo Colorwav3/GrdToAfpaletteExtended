@@ -8,9 +8,9 @@ The conversion is performed entirely in client-side Javascript. No files are upl
 
 # Limitations
 
-Transparency is only partially supported yet. Adobe gradients have a separate track for transparency stops independent from the colours. This isn't something you can do in an Affinity gradient. However, if the transparency stops line up exactly with the colour stops the transparency will be saved into the Affinity palette colours.
+Transparency is only partially supported. Adobe gradients have a separate track for transparency stops independent from the colours. This isn't something you can do in an Affinity gradient. The tool inserts an extra interpolated colour stop when it encounters a transparency stop that doesn't match the position of an existing colour stop. It seems to work ok, but it may not be a perfect match.
 
-Only RGB gradients are supported. Both Adobe and Affinity gradients support many different colourspaces: HSV, CMYK, etc. Supporting them all is a bunch of work and most of the gradients I've found are RGB.
+Only RGB and HSV gradients are supported. Both Adobe and Affinity gradients support many different colourspaces: CMYK, LAB, Greyscale etc. Supporting them all is a bunch of work and most of the gradients I've found are RGB or HSV.
 
 # The .afpalette format
 
