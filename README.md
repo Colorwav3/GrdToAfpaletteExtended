@@ -1,37 +1,59 @@
 # GrdToAfpaletteExtended
 
-An extended fork of [Balakov/GrdToAfpalette](https://github.com/Balakov/GrdToAfpalette) — convert Adobe Photoshop `.grd`, GIMP `.ggr`, and Krita `.kgr` gradient files to Affinity `.afpalette` files.
+A multi-format gradient converter — import from Photoshop `.grd`, GIMP `.ggr`, Krita `.kgr`, `.svg`, `.css`, and CPTCITY `.cpt`, then export to Affinity `.afpalette`, Photoshop `.grd`, GIMP `.ggr`, Krita `.kgr`, `.svg`, or `.css`.
+
+Extended fork of [Balakov/GrdToAfpalette](https://github.com/Balakov/GrdToAfpalette).
 
 > **Note:** This extended version was developed with the assistance of AI tools (GitHub Copilot / Claude).
 
 ## Features
 
-- **Multi-format support**: Adobe `.grd` (v5), GIMP `.ggr`, and Krita `.kgr` gradient files
-- **Affinity 2 / Unified Affinity compatible**: Correct CRC32 checksums for full compatibility
-- **Group detection**: Automatically detects gradient groups from Photoshop `.grd` files
-- **Group-based browsing**: Navigate through individual groups via clickable tabs in the preview
-- **Flexible export**:
-  - Download all gradients as a single `.afpalette` file
-  - Download individual groups as separate `.afpalette` files
-  - Download all groups as a `.zip` archive (one `.afpalette` per group, organized in a folder)
-- **Large file support**: Handles GRD files with hundreds or thousands of gradients
-- **Paginated preview**: Browse gradients 100 at a time for smooth performance
-- **Client-side only**: No files are uploaded to a server — all processing happens in the browser
+### Import Formats
+- Adobe Photoshop **`.grd`** (v5) — RGB, HSB, CMYK, Lab, Greyscale, Book Color
+- GIMP **`.ggr`**
+- Krita **`.kgr`**
+- **SVG** (`<linearGradient>` / `<radialGradient>`)
+- **CSS** (`linear-gradient()`)
+- CPTCITY **`.cpt`**
+
+### Export Formats
+- Affinity **`.afpalette`** (Affinity Photo / Designer / Publisher 1 & 2)
+- Adobe Photoshop **`.grd`** (v5)
+- GIMP **`.ggr`**
+- Krita **`.kgr`**
+- **SVG** (defs with `<linearGradient>`)
+- **CSS** (custom properties + utility classes)
+
+### Color Space Support
+- **RGB** and **HSV/HSB** — native
+- **CMYK → RGB** conversion
+- **CIE Lab → sRGB** conversion (D65 illuminant, gamma-corrected)
+- **Greyscale → RGB** conversion
+- **Book Color** fallback (reads embedded RGB or defaults to neutral gray)
+
+### UI & Workflow
+- Clean dark glassmorphism UI with gradient accents
+- Scrollable preview grid with hover zoom
+- Group detection from Photoshop `.grd` hierarchy — browsable via tabs
+- One-click format selector to switch export target
+- Download single file, individual group, or all groups as ZIP
+- Client-side only — no files leave the browser
 
 ## Usage
 
 1. Open the tool in a browser
-2. Click "Convert Gradient File..." and select your `.grd`, `.ggr`, or `.kgr` file
-3. Browse the gradient preview — if groups are detected, use the tabs to filter by group
-4. Download options:
-   - **Single file**: Click "Download All" to get everything in one `.afpalette`
-   - **Single group**: Select a group tab, then click the download button for just that group
-   - **ZIP archive**: Click "Download All Groups as ZIP" to get a `.zip` file containing one `.afpalette` per group in a folder
+2. Click **Choose File** and select any supported gradient file
+3. Browse the gradient preview — use group tabs to filter if groups were detected
+4. Select the target export format (afpalette, grd, ggr, kgr, svg, css)
+5. Download:
+   - **Single file** — all gradients in one file
+   - **Single group** — select a group tab first
+   - **ZIP archive** — one file per group in a folder
 
 ## Limitations
 
-- Only RGB and HSV/HSB gradients are supported. CMYK, LAB, Greyscale, and Book Color gradients are skipped during conversion.
 - Transparency is only partially supported. Adobe gradients have a separate transparency track independent from colours. The tool inserts interpolated colour stops to approximate transparency, which may not be a perfect match.
+- CMYK/Lab conversion is device-independent (no ICC profiles) — colors may differ slightly from the original Photoshop rendering.
 
 ## Technical Details
 
@@ -49,18 +71,29 @@ Photoshop `.grd` v5 files can contain a hierarchy section near the end of the fi
 
 Groups can be nested. The parser tracks a stack of group names and assigns each preset to the innermost (leaf) group.
 
+### Color Space Conversion
+
+- **CMYK → RGB**: `R = (1-C)(1-K)`, `G = (1-M)(1-K)`, `B = (1-Y)(1-K)`
+- **Lab → sRGB**: Lab → XYZ (D65 illuminant, CIE standard) → linear sRGB (3×3 matrix) → gamma-corrected sRGB
+- **Greyscale → RGB**: `R = G = B = gray`
+- **Book Color**: Attempts to read an embedded RGB fallback that Photoshop stores after the Book Color data; defaults to 50% gray if not found
+
 ### The Code
 
-The `.grd` file loader uses a bounded chunk search approach (`GRDSkipToChunkInRange`, `GRDFindAllChunks`) to parse the binary format without requiring a full descriptor parser. After extracting gradient data, the code puts it into a simple JSON intermediate format before passing it to the `.afpalette` writer.
+The `.grd` file loader uses a bounded chunk search approach (`GRDSkipToChunkInRange`, `GRDFindAllChunks`) to parse the binary format without requiring a full descriptor parser. After extracting gradient data, the code puts it into a simple JSON intermediate format that all export writers consume.
 
-The `.afpalette` writer (`buildAffinityPaletteBuffer`) produces a `Uint8Array` buffer, which can either be saved directly or bundled into a ZIP archive using JSZip.
+Export writers:
+- `write_afpalette.js` — Affinity binary format with CRC32
+- `write_grd.js` — Photoshop GRD v5 binary format
+- `write_ggr.js` — GIMP/Krita text-based gradient format
+- `write_svg.js` — SVG with `<linearGradient>` definitions
+- `write_css.js` — CSS custom properties and utility classes
 
 ## Credits
 
 - Original tool by [Mike Stimpson](https://mikestimpson.com) — [Balakov/GrdToAfpalette](https://github.com/Balakov/GrdToAfpalette)
 - Extended version by [Colorwav3](https://github.com/Colorwav3) with AI assistance (GitHub Copilot / Claude)
 - [JSZip](https://stuk.github.io/jszip/) for ZIP archive generation
-- [Bootstrap 5](https://getbootstrap.com/) for the UI
 
 ## Useful Links
 
