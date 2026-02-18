@@ -3,6 +3,8 @@
 
 Convert Adobe suite (Photoshop/Illustrator/InDesign) .grd gradient files to Affinity suite (Designer/Photo/Publisher) .afpalette files.
 
+This tool also supports GIMP/Krita .ggr/.kgr gradient files.
+
 Although the Affinity suite can import Adobe .ase palettes already, gradients are not supported in .ase files.
 
 The conversion is performed entirely in client-side Javascript. No files are uploaded to a server.
@@ -15,7 +17,9 @@ This isn't something you can do in an Affinity gradient.
 The tool inserts an extra interpolated colour stop when it encounters a transparency stop that doesn't match the position of an existing colour stop. 
 It seems to work ok, but it may not be a perfect match.
 
-Only RGB and HSV gradients are supported. Both Adobe and Affinity gradients support many different colourspaces: CMYK, LAB, Greyscale etc. Supporting them all is a bunch of work and most of the gradients I've found are RGB or HSV.
+Only RGB and HSV/HSB gradients are supported. Both Adobe and Affinity gradients support many different colourspaces: CMYK, LAB, Greyscale etc. Supporting them all is a bunch of work and most of the gradients I've found are RGB or HSV.
+
+Very large GRD files (hundreds or thousands of gradients) are supported, but parsing time will still depend on browser performance.
 
 # The .afpalette format
 

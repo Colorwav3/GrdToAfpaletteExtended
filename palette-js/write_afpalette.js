@@ -30,9 +30,13 @@ function uint32ToBytes(n) {
 }
 
 function uint64ToBytes(n) {
-    let buf = new ArrayBuffer(8);
-    let view = new DataView(buf);
-    view.setUint32(0, n, true);
+    const buf = new ArrayBuffer(8);
+    const view = new DataView(buf);
+    const value = typeof n === "bigint" ? n : BigInt(Math.floor(n));
+    const low = Number(value & 0xFFFFFFFFn);
+    const high = Number((value >> 32n) & 0xFFFFFFFFn);
+    view.setUint32(0, low, true);
+    view.setUint32(4, high, true);
     return new Uint8Array(buf);
 }
 
@@ -53,7 +57,7 @@ function float64ToBytes(d) {
 function stringToBytes(s) {
     const utf8Encode = new TextEncoder();
     const stringBytes = utf8Encode.encode(s);
-    const lengthBytes = uint32ToBytes(s.length);
+    const lengthBytes = uint32ToBytes(stringBytes.length);
 
     let buf = new Uint8Array(stringBytes.length + lengthBytes.length);
     let currentIndex = 0;
@@ -71,6 +75,32 @@ function stringToBytes(s) {
 
 function hexToBytes(s) {
     return new Uint8Array(s.match(/.{2}/g).map(e => parseInt(e, 16)));
+}
+
+// CRC32 lookup table (standard polynomial 0xEDB88320)
+const crc32Table = (function() {
+    const table = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let j = 0; j < 8; j++) {
+            if (c & 1) {
+                c = 0xEDB88320 ^ (c >>> 1);
+            } else {
+                c = c >>> 1;
+            }
+        }
+        table[i] = c;
+    }
+    return table;
+})();
+
+function computeCRC32(data, offset, length) {
+    let crc = 0xFFFFFFFF;
+    const end = offset + length;
+    for (let i = offset; i < end; i++) {
+        crc = crc32Table[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
 }
 
 function writeAffinityPalette(paletteData) {
@@ -288,12 +318,14 @@ function writeAffinityPalette(paletteData) {
     buffers.push(uint64ToBytes(0)); // Body size
     replaceWithBodySizeBuffers.push(buffers.length-1);
 
-    const HEX_DummyChecksum = "00000000";   // ??
-    //const HEX_DummyChecksum = "65FBC991"; ??
+    // CRC32 checksum placeholders - will be computed after merging
+    const replaceWithChecksumBuffers = [];
 
-    buffers.push(hexToBytes(HEX_DummyChecksum));
+    buffers.push(uint32ToBytes(0));  // Checksum slot 1
+    replaceWithChecksumBuffers.push(buffers.length-1);
     buffers.push(hexToBytes("0014000000"));
-    buffers.push(hexToBytes(HEX_DummyChecksum));
+    buffers.push(uint32ToBytes(0));  // Checksum slot 2
+    replaceWithChecksumBuffers.push(buffers.length-1);
     buffers.push(hexToBytes("0C00"));
     buffers.push(hexToBytes(HEX_SwatchesDat));
 
@@ -328,6 +360,25 @@ function writeAffinityPalette(paletteData) {
             mergedBuffer[currentIndex++] = buffers[i][j];
         }
     }
+
+    // Compute CRC32 checksum over bodySize bytes starting at offset (headerSize - 4)
+    const bodySize = fileSize - (c_footerSize + c_headerSize);
+    const crcOffset = c_headerSize - 4;  // 76
+    const crc = computeCRC32(mergedBuffer, crcOffset, bodySize);
+    const crcBytes = uint32ToBytes(crc);
+
+    // Write CRC to both checksum positions in the footer
+    const footerStart = fileSize - c_footerSize;
+    // Checksum 1 at footer byte 88
+    mergedBuffer[footerStart + 88] = crcBytes[0];
+    mergedBuffer[footerStart + 89] = crcBytes[1];
+    mergedBuffer[footerStart + 90] = crcBytes[2];
+    mergedBuffer[footerStart + 91] = crcBytes[3];
+    // Checksum 2 at footer byte 97
+    mergedBuffer[footerStart + 97] = crcBytes[0];
+    mergedBuffer[footerStart + 98] = crcBytes[1];
+    mergedBuffer[footerStart + 99] = crcBytes[2];
+    mergedBuffer[footerStart + 100] = crcBytes[3];
 
     const blob = new Blob([mergedBuffer], {type: "octet/stream"});
 

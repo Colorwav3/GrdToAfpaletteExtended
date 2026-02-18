@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Grd to Afpalette Converter</title>
+    <title>Gradient to Afpalette Converter</title>
     <link rel="stylesheet" href="css/bootstrap.min.css">
     <style>
         body {
@@ -34,16 +34,16 @@
             <div class="card" id="upload_card">
                 <div class="card-body p-5">
                     <div class="card-text mb-4">
-                        <span>Convert an Adobe Suite <tt>.grd</tt> gradient file into an Affinity Suite <tt>.afpalette</tt> file.</span>
+                        <span>Convert Adobe <tt>.grd</tt> or GIMP/Krita <tt>.ggr</tt>/<tt>.kgr</tt> gradient files into an Affinity <tt>.afpalette</tt> file.</span>
                         <ul>
-                            <li>Only RGB and HSB gradients are supported.</li>
+                            <li>Only RGB and HSB/HSV gradients are supported.</li>
                         </ul>
                         <p id="errors" class="alert alert-warning" style="display:none"></p>
                     </div>
                     <div class="d-flex justify-content-center">
                         <label class="btn btn-light btn-lg mb-0">
-                            <span>Convert Adobe Gradient File...</span>
-                            <input id="GRDfile" type="file" accept=".grd" hidden />
+                            <span>Convert Gradient File...</span>
+                            <input id="paletteFile" type="file" accept=".grd,.ggr,.kgr" hidden />
                         </label>
                     </div>
                 </div>
@@ -55,10 +55,22 @@
                     <div class="card-text mb-4">
                         <div id="palette_preview" class="d-flex flex-wrap justify-content-center"></div>
                     </div>
+
+                    <div class="d-flex justify-content-center align-items-center gap-3 mb-3" id="split_controls">
+                        <div class="form-check form-switch text-light">
+                            <input class="form-check-input" type="checkbox" id="splitEnabled" onchange="toggleSplitControls()">
+                            <label class="form-check-label" for="splitEnabled">Split into multiple files</label>
+                        </div>
+                        <div id="split_size_group" style="display:none;" class="d-flex align-items-center gap-2">
+                            <label class="text-light text-nowrap" for="splitSize">Gradients per file:</label>
+                            <input type="number" class="form-control form-control-sm" id="splitSize" value="50" min="1" max="10000" style="width:80px;" oninput="updateDownloadLabel()">
+                        </div>
+                    </div>
+
                     <div class="d-flex justify-content-center">
                         <button class="btn btn-light btn-lg mb-3" onclick="downloadPreviewedPalette()">
                             <img class="icon me-2" src="img/download.svg" />
-                            <span>Download Affinity Palette</span>
+                            <span id="download_label">Download Affinity Palette</span>
                         </button>
                     </div>
                     <div class="d-flex justify-content-center">
@@ -68,14 +80,14 @@
             </div>
 
             <footer style="position: absolute; bottom: 50px;" class="text-light text-center">
-                <div class="mb-2">&copy; 2023 Mike Stimpson - <a href="https://mikestimpson.com" class="text-light">mikestimpson.com</a></div>
+                <div class="mb-2">&copy; 2023-2025 Mike Stimpson - <a href="https://mikestimpson.com" class="text-light">mikestimpson.com</a></div>
                 <div><a href="https://github.com/Balakov/GrdToAfpalette" class="text-light">View the code on GitHub</a></span></div>
             </footer>
 
         </div>
     </div>
 
-    <script src="palette-js/load_grd.js"></script>
+    <script src="palette-js/load_gradients.js"></script>
     <script src="palette-js/load_afpalette.js"></script>
     <script src="palette-js/write_afpalette.js"></script>
     <script src="palette-js/gradient_utils.js"></script>
