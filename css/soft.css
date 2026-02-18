@@ -353,8 +353,8 @@ body::after {
     margin-bottom: 24px;
     max-height: 440px;
     overflow-y: auto;
-    overflow-x: hidden;
-    padding: 16px 12px;
+    overflow-x: visible;
+    padding: 18px 20px;
     scrollbar-width: thin;
     scrollbar-color: rgba(168,85,247,0.25) transparent;
 }
@@ -395,9 +395,9 @@ body::after {
 }
 
 .gradient-preview:hover .gradient-glow {
-    opacity: 0.6;
-    filter: blur(12px) saturate(1.5);
-    transform: scale(1.35);
+    opacity: 0.55;
+    filter: blur(8px) saturate(1.4);
+    transform: scale(1.15);
 }
 
 .gradient-preview canvas {
@@ -412,8 +412,8 @@ body::after {
     inset: 0;
     border-radius: 10px;
     opacity: 0;
-    filter: blur(8px) saturate(1.2);
-    transform: scale(1.15);
+    filter: blur(6px) saturate(1.1);
+    transform: scale(1.05);
     transition: all var(--transition);
     pointer-events: none;
     z-index: -1;
