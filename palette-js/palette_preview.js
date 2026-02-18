@@ -142,18 +142,23 @@ function renderPreviewPage() {
             ctx.stroke();
         }
 
-        // Create blurred glow clone behind the gradient
-        var glowCanvas = document.createElement("canvas");
-        glowCanvas.width = canvasSize;
-        glowCanvas.height = canvasSize;
-        glowCanvas.className = "gradient-glow";
-        var glowCtx = glowCanvas.getContext("2d");
-        glowCtx.drawImage(canvasElement, 0, 0);
+        // Sample average color for glow effect
+        var avgR = 0, avgG = 0, avgB = 0, samples = 5;
+        for (var s = 0; s < samples; s++) {
+            var st = (s + 0.5) / samples;
+            var sc = gradientUtils.getColourFromGradient(palettes[i].Colours, st);
+            avgR += sc.Red; avgG += sc.Green; avgB += sc.Blue;
+        }
+        avgR = Math.round((avgR / samples) * 255);
+        avgG = Math.round((avgG / samples) * 255);
+        avgB = Math.round((avgB / samples) * 255);
 
         var gradientElement = document.createElement("div");
         gradientElement.classList.add("gradient-preview");
         gradientElement.title = palettes[i].Name + (palettes[i].Group ? ' [' + palettes[i].Group + ']' : '');
-        gradientElement.appendChild(glowCanvas);
+        gradientElement.style.setProperty('--glow-r', avgR);
+        gradientElement.style.setProperty('--glow-g', avgG);
+        gradientElement.style.setProperty('--glow-b', avgB);
         gradientElement.appendChild(canvasElement);
 
         previewElement.appendChild(gradientElement);

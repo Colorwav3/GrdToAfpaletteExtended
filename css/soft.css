@@ -385,22 +385,20 @@ body::after {
     border-radius: 10px !important;
     width: 54px !important;
     height: 54px !important;
-    overflow: visible;
+    overflow: hidden;
     transition: all var(--transition);
     cursor: default;
     position: relative;
+    --glow-r: 168;
+    --glow-g: 85;
+    --glow-b: 247;
 }
 
 .gradient-preview:hover {
-    border-color: rgba(255, 255, 255, 0.15) !important;
+    border-color: rgba(255, 255, 255, 0.18) !important;
     z-index: 1;
-    transform: scale(1.2);
-}
-
-.gradient-preview:hover .gradient-glow {
-    opacity: 0.55;
-    filter: blur(8px) saturate(1.4);
     transform: scale(1.15);
+    box-shadow: 0 0 16px 4px rgba(var(--glow-r), var(--glow-g), var(--glow-b), 0.4);
 }
 
 .gradient-preview canvas {
@@ -408,18 +406,6 @@ body::after {
     width: 100%;
     height: 100%;
     border-radius: 9px;
-}
-
-.gradient-glow {
-    position: absolute;
-    inset: 0;
-    border-radius: 10px;
-    opacity: 0;
-    filter: blur(6px) saturate(1.1);
-    transform: scale(1.05);
-    transition: all var(--transition);
-    pointer-events: none;
-    z-index: -1;
 }
 
 
