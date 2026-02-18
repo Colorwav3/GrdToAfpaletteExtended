@@ -31,6 +31,11 @@ const c_Trns = 0x54726E73;
 const c_TrnS = 0x54726E53;
 const c_Opct = 0x4F706374;
 
+// Group hierarchy markers
+const c_Grup = 0x47727570;  // 'Grup'
+const c_VlLs = 0x566C4C73;  // 'VlLs'
+const c_Objc = 0x4F626A63;  // 'Objc'
+
 function getFileExtension(filename) {
     const lastDot = filename.lastIndexOf(".");
     if (lastDot < 0) {
@@ -109,8 +114,12 @@ function parseGrdArrayBuffer(buffer, filenameWithoutExtension) {
 
     const palettes = {
         Name: filenameWithoutExtension,
-        Palettes: []
+        Palettes: [],
+        Groups: []
     };
+
+    // Parse group hierarchy (if present) before processing gradients
+    const groupMap = GRDParseHierarchy(dataView);
 
     const gradientOffsets = GRDFindAllChunks(dataView, c_Grdn);
 
@@ -251,6 +260,12 @@ function parseGrdArrayBuffer(buffer, filenameWithoutExtension) {
             continue;
         }
 
+        // Assign group from hierarchy (each gradient has 2 Grdn occurrences, so pair index = floor(index/2))
+        const vlLsIndex = Math.floor(index / 2);
+        if (groupMap.length > 0 && vlLsIndex < groupMap.length) {
+            palette.Group = groupMap[vlLsIndex];
+        }
+
         // Get the transparency stops
         if(colourTrack.length > 0)
         {
@@ -323,6 +338,24 @@ function parseGrdArrayBuffer(buffer, filenameWithoutExtension) {
 
             palettes.Palettes.push(palette);
         }
+    }
+
+    // Build group summary from parsed palettes
+    if (groupMap.length > 0) {
+        const seenGroups = [];
+        const groupCounts = {};
+        for (let p = 0; p < palettes.Palettes.length; p++) {
+            const g = palettes.Palettes[p].Group || '(Ungrouped)';
+            if (!groupCounts[g]) {
+                groupCounts[g] = 0;
+                seenGroups.push(g);
+            }
+            groupCounts[g]++;
+        }
+        for (let g = 0; g < seenGroups.length; g++) {
+            palettes.Groups.push({ name: seenGroups[g], count: groupCounts[seenGroups[g]] });
+        }
+        console.log("Found " + palettes.Groups.length + " groups: " + seenGroups.join(", "));
     }
 
     console.log("Found " + palettes.Palettes.length + " palettes");
@@ -469,6 +502,121 @@ function clamp01(value) {
     }
 
     return Math.min(1, Math.max(0, value));
+}
+
+// Parse the GRD hierarchy section to extract group assignments.
+// Returns an array where groupMap[vlLsIndex] = "GroupName" for each gradient.
+function GRDParseHierarchy(dataView) {
+    const groupMap = [];
+
+    // Search for the hierarchy VlLs section near the end of the file.
+    // It is preceded by "8BIMphry" and "hierarchyVlLs".
+    const hierMarker = [0x68, 0x69, 0x65, 0x72, 0x61, 0x72, 0x63, 0x68, 0x79]; // "hierarchy"
+    let hierPos = -1;
+    const searchStart = Math.max(0, dataView.byteLength - 100000);
+    for (let i = searchStart; i < dataView.byteLength - 20; i++) {
+        let match = true;
+        for (let m = 0; m < hierMarker.length; m++) {
+            if (dataView.getUint8(i + m) !== hierMarker[m]) { match = false; break; }
+        }
+        if (match) {
+            // "hierarchy" found, VlLs should follow
+            const vlLsOffset = i + hierMarker.length;
+            if (dataView.getUint32(vlLsOffset, false) === c_VlLs) {
+                hierPos = vlLsOffset;
+            }
+            break;
+        }
+    }
+
+    if (hierPos < 0) {
+        console.log("No group hierarchy found in GRD file.");
+        return groupMap;
+    }
+
+    const hierItemCount = dataView.getUint32(hierPos + 4, false);
+    console.log("Found hierarchy VlLs with " + hierItemCount + " items at offset " + hierPos);
+
+    // Find all Objc positions in the hierarchy section
+    const objcPositions = [];
+    for (let i = hierPos + 8; i < dataView.byteLength - 8; i++) {
+        if (dataView.getUint32(i, false) === c_Objc) {
+            // Verify: next comes a unicode string length that's reasonable
+            const testLen = dataView.getUint32(i + 4, false);
+            if (testLen < 200) {
+                objcPositions.push(i);
+            }
+        }
+    }
+
+    // Parse each Objc to extract classId and name
+    const groupStack = [];
+    let presetCount = 0;
+
+    for (let idx = 0; idx < objcPositions.length; idx++) {
+        let p = objcPositions[idx] + 4; // skip 'Objc'
+
+        // Unicode descriptor name
+        const nameLen = dataView.getUint32(p, false);
+        p += 4 + nameLen * 2;
+
+        // ClassID
+        const keyLen = dataView.getUint32(p, false);
+        const actualLen = keyLen === 0 ? 4 : keyLen;
+        let classId = '';
+        for (let c = 0; c < actualLen; c++) {
+            classId += String.fromCharCode(dataView.getUint8(p + 4 + c));
+        }
+        classId = classId.trim();
+        p += 4 + actualLen;
+
+        if (classId === 'Grup') {
+            // Read field count, then find Nm field
+            const fieldCount = dataView.getUint32(p, false);
+            p += 4;
+            let grupName = '';
+            for (let f = 0; f < fieldCount; f++) {
+                // Field key
+                const fkLen = dataView.getUint32(p, false);
+                const fkActual = fkLen === 0 ? 4 : fkLen;
+                let fk = '';
+                for (let c = 0; c < fkActual; c++) fk += String.fromCharCode(dataView.getUint8(p + 4 + c));
+                fk = fk.trim();
+                p += 4 + fkActual;
+                // Type tag
+                const tt = String.fromCharCode(
+                    dataView.getUint8(p), dataView.getUint8(p+1),
+                    dataView.getUint8(p+2), dataView.getUint8(p+3));
+                p += 4;
+                if (tt === 'TEXT') {
+                    const tLen = dataView.getUint32(p, false);
+                    p += 4;
+                    let tVal = '';
+                    for (let c = 0; c < tLen; c++) {
+                        const ch = dataView.getUint16(p + c * 2, false);
+                        if (ch > 0) tVal += String.fromCharCode(ch);
+                    }
+                    p += tLen * 2;
+                    if (fk === 'Nm') grupName = tVal;
+                } else {
+                    break; // Unknown field type, stop parsing this descriptor
+                }
+            }
+            groupStack.push(grupName);
+
+        } else if (classId === 'groupEnd') {
+            if (groupStack.length > 0) groupStack.pop();
+
+        } else if (classId === 'preset') {
+            // This preset entry maps to the gradient at index presetCount
+            const currentGroup = groupStack.length > 0 ? groupStack[groupStack.length - 1] : '';
+            groupMap[presetCount] = currentGroup;
+            presetCount++;
+        }
+    }
+
+    console.log("Parsed " + presetCount + " preset entries in hierarchy.");
+    return groupMap;
 }
 
 function GRDSkipToChunkInRange(dataView, current, val, endIndex) {

@@ -56,14 +56,23 @@
                         <div id="palette_preview" class="d-flex flex-wrap justify-content-center"></div>
                     </div>
 
-                    <div class="d-flex justify-content-center align-items-center gap-3 mb-3" id="split_controls">
+                    <div class="d-flex flex-column align-items-center gap-2 mb-3" id="split_controls">
                         <div class="form-check form-switch text-light">
                             <input class="form-check-input" type="checkbox" id="splitEnabled" onchange="toggleSplitControls()">
                             <label class="form-check-label" for="splitEnabled">Split into multiple files</label>
                         </div>
-                        <div id="split_size_group" style="display:none;" class="d-flex align-items-center gap-2">
-                            <label class="text-light text-nowrap" for="splitSize">Gradients per file:</label>
-                            <input type="number" class="form-control form-control-sm" id="splitSize" value="50" min="1" max="10000" style="width:80px;" oninput="updateDownloadLabel()">
+                        <div id="split_options" style="display:none;" class="d-flex flex-column align-items-center gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <label class="text-light text-nowrap" for="splitMode">Split mode:</label>
+                                <select class="form-select form-select-sm" id="splitMode" style="width:auto;" onchange="onSplitModeChange()">
+                                    <option value="count">By count</option>
+                                </select>
+                            </div>
+                            <div id="split_size_group" style="display:none;" class="d-flex align-items-center gap-2">
+                                <label class="text-light text-nowrap" for="splitSize">Gradients per file:</label>
+                                <input type="number" class="form-control form-control-sm" id="splitSize" value="50" min="1" max="10000" style="width:80px;" oninput="updateDownloadLabel()">
+                            </div>
+                            <small id="split_group_info" class="text-light text-center" style="display:none; max-width:400px;"></small>
                         </div>
                     </div>
 

@@ -21,8 +21,29 @@ function previewPalette(paletteData) {
 
     globalPaletteData = paletteData;
 
+    // Configure split controls based on available groups
+    const hasGroups = paletteData.Groups && paletteData.Groups.length > 0;
+    const splitModeSelect = document.getElementById('splitMode');
+    const splitSizeGroup = document.getElementById('split_size_group');
+    const splitGroupInfo = document.getElementById('split_group_info');
+    const splitCheckbox = document.getElementById('splitEnabled');
+
+    // Reset state
+    splitCheckbox.checked = false;
+    splitSizeGroup.style.display = 'none';
+    splitGroupInfo.style.display = 'none';
+
+    if (hasGroups) {
+        // Show group option in selector
+        splitModeSelect.innerHTML = '<option value="groups">By groups (' + paletteData.Groups.length + ' groups)</option>'
+            + '<option value="count">By count</option>';
+    } else {
+        splitModeSelect.innerHTML = '<option value="count">By count</option>';
+    }
+
     uploadElement.style.display = 'none';
     downloadElement.style.display = 'block';
+    updateDownloadLabel();
 }
 
 function renderPreviewPage(paletteData) {
@@ -128,7 +149,28 @@ function renderPreviewPage(paletteData) {
 
 function toggleSplitControls() {
     const enabled = document.getElementById('splitEnabled').checked;
-    document.getElementById('split_size_group').style.display = enabled ? 'flex' : 'none';
+    const splitOptions = document.getElementById('split_options');
+    splitOptions.style.display = enabled ? 'flex' : 'none';
+    onSplitModeChange();
+}
+
+function onSplitModeChange() {
+    const mode = document.getElementById('splitMode').value;
+    const splitSizeGroup = document.getElementById('split_size_group');
+    const splitGroupInfo = document.getElementById('split_group_info');
+
+    splitSizeGroup.style.display = mode === 'count' ? 'flex' : 'none';
+
+    if (mode === 'groups' && globalPaletteData && globalPaletteData.Groups) {
+        const lines = globalPaletteData.Groups.map(function(g) {
+            return g.name + ' (' + g.count + ')';
+        });
+        splitGroupInfo.textContent = lines.join(', ');
+        splitGroupInfo.style.display = 'block';
+    } else {
+        splitGroupInfo.style.display = 'none';
+    }
+
     updateDownloadLabel();
 }
 
@@ -137,13 +179,20 @@ function updateDownloadLabel() {
     if (!globalPaletteData) return;
 
     const splitEnabled = document.getElementById('splitEnabled').checked;
-    if (splitEnabled) {
+    if (!splitEnabled) {
+        label.textContent = "Download Affinity Palette";
+        return;
+    }
+
+    const mode = document.getElementById('splitMode').value;
+    if (mode === 'groups' && globalPaletteData.Groups && globalPaletteData.Groups.length > 0) {
+        const fileCount = globalPaletteData.Groups.length;
+        label.textContent = "Download " + fileCount + " Affinity Palette" + (fileCount !== 1 ? "s" : "");
+    } else {
         const splitSize = Math.max(1, parseInt(document.getElementById('splitSize').value) || 50);
         const total = globalPaletteData.Palettes.length;
         const fileCount = Math.ceil(total / splitSize);
         label.textContent = "Download " + fileCount + " Affinity Palette" + (fileCount !== 1 ? "s" : "");
-    } else {
-        label.textContent = "Download Affinity Palette";
     }
 }
 
@@ -155,22 +204,52 @@ function downloadPreviewedPalette() {
         return;
     }
 
-    const splitSize = Math.max(1, parseInt(document.getElementById('splitSize').value) || 50);
-    const total = globalPaletteData.Palettes.length;
-    const fileCount = Math.ceil(total / splitSize);
+    const mode = document.getElementById('splitMode').value;
 
-    for (let part = 0; part < fileCount; part++) {
-        const start = part * splitSize;
-        const end = Math.min(start + splitSize, total);
-        const partData = {
-            Name: globalPaletteData.Name + "_Part" + (part + 1),
-            Palettes: globalPaletteData.Palettes.slice(start, end)
-        };
+    if (mode === 'groups' && globalPaletteData.Groups && globalPaletteData.Groups.length > 0) {
+        // Split by groups: each group becomes a separate file
+        const groupedPalettes = {};
+        const groupOrder = [];
 
-        // Stagger downloads to avoid browser blocking
-        setTimeout(function() {
-            writeAffinityPalette(partData);
-        }, part * 500);
+        for (let i = 0; i < globalPaletteData.Palettes.length; i++) {
+            const group = globalPaletteData.Palettes[i].Group || '(Ungrouped)';
+            if (!groupedPalettes[group]) {
+                groupedPalettes[group] = [];
+                groupOrder.push(group);
+            }
+            groupedPalettes[group].push(globalPaletteData.Palettes[i]);
+        }
+
+        for (let part = 0; part < groupOrder.length; part++) {
+            const groupName = groupOrder[part];
+            const safeName = groupName.replace(/[<>:"/\\|?*]/g, '_');
+            const partData = {
+                Name: globalPaletteData.Name + " - " + safeName,
+                Palettes: groupedPalettes[groupName]
+            };
+
+            setTimeout(function() {
+                writeAffinityPalette(partData);
+            }, part * 500);
+        }
+    } else {
+        // Split by count
+        const splitSize = Math.max(1, parseInt(document.getElementById('splitSize').value) || 50);
+        const total = globalPaletteData.Palettes.length;
+        const fileCount = Math.ceil(total / splitSize);
+
+        for (let part = 0; part < fileCount; part++) {
+            const start = part * splitSize;
+            const end = Math.min(start + splitSize, total);
+            const partData = {
+                Name: globalPaletteData.Name + "_Part" + (part + 1),
+                Palettes: globalPaletteData.Palettes.slice(start, end)
+            };
+
+            setTimeout(function() {
+                writeAffinityPalette(partData);
+            }, part * 500);
+        }
     }
 }
 
