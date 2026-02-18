@@ -1,56 +1,77 @@
 # GrdToAfpaletteExtended
-" This is heavily in progress and still includes old descriptions - please bear with me.
 
-Convert Adobe suite (Photoshop/Illustrator/InDesign) .grd gradient files to Affinity suite (Designer/Photo/Publisher) .afpalette files.
+An extended fork of [Balakov/GrdToAfpalette](https://github.com/Balakov/GrdToAfpalette) — convert Adobe Photoshop `.grd`, GIMP `.ggr`, and Krita `.kgr` gradient files to Affinity `.afpalette` files.
 
-This tool also supports GIMP/Krita .ggr/.kgr gradient files.
+> **Note:** This extended version was developed with the assistance of AI tools (GitHub Copilot / Claude).
 
-Although the Affinity suite can import Adobe .ase palettes already, gradients are not supported in .ase files.
+## Features
 
-The conversion is performed entirely in client-side Javascript. No files are uploaded to a server.
+- **Multi-format support**: Adobe `.grd` (v5), GIMP `.ggr`, and Krita `.kgr` gradient files
+- **Affinity 2 / Unified Affinity compatible**: Correct CRC32 checksums for full compatibility
+- **Group detection**: Automatically detects gradient groups from Photoshop `.grd` files
+- **Group-based browsing**: Navigate through individual groups via clickable tabs in the preview
+- **Flexible export**:
+  - Download all gradients as a single `.afpalette` file
+  - Download individual groups as separate `.afpalette` files
+  - Download all groups as a `.zip` archive (one `.afpalette` per group, organized in a folder)
+- **Large file support**: Handles GRD files with hundreds or thousands of gradients
+- **Paginated preview**: Browse gradients 100 at a time for smooth performance
+- **Client-side only**: No files are uploaded to a server — all processing happens in the browser
 
-# Limitations
+## Usage
 
-Transparency is only partially supported. 
-Adobe gradients have a separate track for transparency stops independent from the colours. 
-This isn't something you can do in an Affinity gradient. 
-The tool inserts an extra interpolated colour stop when it encounters a transparency stop that doesn't match the position of an existing colour stop. 
-It seems to work ok, but it may not be a perfect match.
+1. Open the tool in a browser
+2. Click "Convert Gradient File..." and select your `.grd`, `.ggr`, or `.kgr` file
+3. Browse the gradient preview — if groups are detected, use the tabs to filter by group
+4. Download options:
+   - **Single file**: Click "Download All" to get everything in one `.afpalette`
+   - **Single group**: Select a group tab, then click the download button for just that group
+   - **ZIP archive**: Click "Download All Groups as ZIP" to get a `.zip` file containing one `.afpalette` per group in a folder
 
-Only RGB and HSV/HSB gradients are supported. Both Adobe and Affinity gradients support many different colourspaces: CMYK, LAB, Greyscale etc. Supporting them all is a bunch of work and most of the gradients I've found are RGB or HSV.
+## Limitations
 
-Very large GRD files (hundreds or thousands of gradients) are supported, but parsing time will still depend on browser performance.
+- Only RGB and HSV/HSB gradients are supported. CMYK, LAB, Greyscale, and Book Color gradients are skipped during conversion.
+- Transparency is only partially supported. Adobe gradients have a separate transparency track independent from colours. The tool inserts interpolated colour stops to approximate transparency, which may not be a perfect match.
 
-# The .afpalette format
+## Technical Details
 
-The Affinity palette format is a standard chunk-based format with a header and footer, but there are still a lot of unknowns and a few unexpected features. It took a few days fiddling around in [ImHex](https://github.com/WerWolv/ImHex) to make a file that Affinity Designer would load. Most of the time you get an "Invalid File Format" error if you make a bad file, but if you try really hard you can crash the whole thing. For example, importing a gradient that doesn't have a colour stop a location 1.0! Adobe gradients support that, they just continue the last colour stop until the end of the gradient. Affinity Designer displays garbage and then crashes after a few seconds. I apologise to the Affinity developer for probably sending quite a few automated crash reports to them!
+### The .afpalette Format
 
-One of the other weirdnesses I discovered is that if colours that appear more than once in the palette file they are replaced with a reference to the first instance of the colour. I don't support that in the files I write out, I just duplicate the colours as it was a lot easier, and Affinity Designer doesn't mind.
+The Affinity palette format is a chunk-based binary format with a header (80 bytes), body, and footer (115 bytes). A CRC32 checksum (polynomial `0xEDB88320`) is computed over the body and written to two positions in the footer. Without a valid checksum, Affinity 2 rejects the file.
 
-# The code
+### GRD Group Hierarchy
 
-The .grd file loader not exactly elegant. It ignores a lot of the file and just picks out the block names it needs. The format is documented, but you don't really need to parse out every little bit of data to get the essential information from a gradient (colours, colour stop locations and midpoints), and I don't have infinite time.
+Photoshop `.grd` v5 files can contain a hierarchy section near the end of the file, preceded by `8BIMphry` and `hierarchy`. This section contains a `VlLs` (Value List) with `Objc` (Object) entries of three class types:
 
-After parsing the .grd the code puts the information into a super-simple JSON intermediate format before passing it to the Affinity writer code. The idea is that the .grd loader and .afpalette writer are independent from each other. Anyone wanting to re-use the code could convert other gradient types to .afpalette, or use the .grd loader and output to another format.
+- **`Grup`** — group start (contains a `Nm` TEXT field with the group name)
+- **`groupEnd`** — group end marker
+- **`preset`** — gradient reference (maps 1:1 to gradients in the main data)
 
-There is a very basic .afpalette reader in the code that does nothing other than parse a .afpalette file and dump its findings to console.log. This was useful when reverse-engineering the format but isn't used in the converter.
+Groups can be nested. The parser tracks a stack of group names and assigns each preset to the innermost (leaf) group.
 
-# Useful links
+### The Code
 
-[Description of .grd chunks](http://www.selapa.net/swatches/gradients/fileformats.php)
+The `.grd` file loader uses a bounded chunk search approach (`GRDSkipToChunkInRange`, `GRDFindAllChunks`) to parse the binary format without requiring a full descriptor parser. After extracting gradient data, the code puts it into a simple JSON intermediate format before passing it to the `.afpalette` writer.
 
-[.grd file format description](https://github.com/tonton-pixel/json-photoshop-scripting/tree/master/Documentation/Photoshop-Gradients-File-Format#descriptor)
+The `.afpalette` writer (`buildAffinityPaletteBuffer`) produces a `Uint8Array` buffer, which can either be saved directly or bundled into a ZIP archive using JSZip.
 
-[Official Adobe file formats](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#50577411_pgfId-1059252)
+## Credits
 
-[Adobe](https://www.adobe.com/)
+- Original tool by [Mike Stimpson](https://mikestimpson.com) — [Balakov/GrdToAfpalette](https://github.com/Balakov/GrdToAfpalette)
+- Extended version by [Colorwav3](https://github.com/Colorwav3) with AI assistance (GitHub Copilot / Claude)
+- [JSZip](https://stuk.github.io/jszip/) for ZIP archive generation
+- [Bootstrap 5](https://getbootstrap.com/) for the UI
 
-[Affinity](https://affinity.serif.com/)
+## Useful Links
 
-# Disclaimer
+- [Description of .grd chunks](http://www.selapa.net/swatches/gradients/fileformats.php)
+- [.grd file format description](https://github.com/tonton-pixel/json-photoshop-scripting/tree/master/Documentation/Photoshop-Gradients-File-Format#descriptor)
+- [Official Adobe file formats](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#50577411_pgfId-1059252)
+- [Adobe](https://www.adobe.com/)
+- [Affinity](https://affinity.serif.com/)
 
-I am not affiliated with either Adobe or Affinity. This is a personal project that I am providing to the community and therefore take no responsibility for lost work due to crashes or malfunctions caused by the files this tool generates.
+## Disclaimer
+
+This project is not affiliated with Adobe or Serif (Affinity). It is a community project provided under the MIT licence. Use at your own risk — no responsibility is taken for lost work due to crashes or malfunctions.
 
 All trademarks and brand names are the property of their respective owners.
-
-This project is provided under the MIT licence.

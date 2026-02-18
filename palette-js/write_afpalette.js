@@ -103,7 +103,7 @@ function computeCRC32(data, offset, length) {
     return (crc ^ 0xFFFFFFFF) >>> 0;
 }
 
-function writeAffinityPalette(paletteData) {
+function buildAffinityPaletteBuffer(paletteData) {
 
     const buffers = [];
     const replaceWithFileSizeBuffers = [];
@@ -380,7 +380,11 @@ function writeAffinityPalette(paletteData) {
     mergedBuffer[footerStart + 99] = crcBytes[2];
     mergedBuffer[footerStart + 100] = crcBytes[3];
 
-    const blob = new Blob([mergedBuffer], {type: "octet/stream"});
+    return mergedBuffer;
+}
 
+function writeAffinityPalette(paletteData) {
+    const buffer = buildAffinityPaletteBuffer(paletteData);
+    const blob = new Blob([buffer], {type: "octet/stream"});
     saveFile(blob, paletteData.Name + ".afpalette");
 }

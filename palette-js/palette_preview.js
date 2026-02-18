@@ -1,5 +1,6 @@
 
 let globalPaletteData;
+let currentGroupFilter = null; // null = all, string = group name
 
 const previewElement = document.getElementById("palette_preview");
 const previewNameElement = document.getElementById("palette_preview_name");
@@ -9,101 +10,146 @@ const uploadElement = document.getElementById("upload_card");
 const PREVIEW_PAGE_SIZE = 100;
 let currentPreviewPage = 0;
 
-function previewPalette(paletteData) {
+function getFilteredPalettes() {
+    if (!globalPaletteData) return [];
+    if (currentGroupFilter === null) return globalPaletteData.Palettes;
+    return globalPaletteData.Palettes.filter(function(p) {
+        return (p.Group || '(Ungrouped)') === currentGroupFilter;
+    });
+}
 
-    previewElement.textContent = '';
+function previewPalette(paletteData) {
+    globalPaletteData = paletteData;
+    currentGroupFilter = null;
     currentPreviewPage = 0;
 
     const total = paletteData.Palettes.length;
     previewNameElement.textContent = paletteData.Name + " (" + total + " gradient" + (total !== 1 ? "s" : "") + ")";
 
-    renderPreviewPage(paletteData);
-
-    globalPaletteData = paletteData;
-
-    // Configure split controls based on available groups
-    const hasGroups = paletteData.Groups && paletteData.Groups.length > 0;
-    const splitModeSelect = document.getElementById('splitMode');
-    const splitSizeGroup = document.getElementById('split_size_group');
-    const splitGroupInfo = document.getElementById('split_group_info');
-    const splitCheckbox = document.getElementById('splitEnabled');
-
-    // Reset state
-    splitCheckbox.checked = false;
-    splitSizeGroup.style.display = 'none';
-    splitGroupInfo.style.display = 'none';
-
-    if (hasGroups) {
-        // Show group option in selector
-        splitModeSelect.innerHTML = '<option value="groups">By groups (' + paletteData.Groups.length + ' groups)</option>'
-            + '<option value="count">By count</option>';
-    } else {
-        splitModeSelect.innerHTML = '<option value="count">By count</option>';
-    }
+    buildGroupTabs();
+    renderPreviewPage();
+    updateExportControls();
 
     uploadElement.style.display = 'none';
     downloadElement.style.display = 'block';
-    updateDownloadLabel();
 }
 
-function renderPreviewPage(paletteData) {
-    // Remove any existing pagination controls
-    const existingControls = document.getElementById("preview_pagination");
-    if (existingControls) {
-        existingControls.remove();
+function buildGroupTabs() {
+    const container = document.getElementById("group_tabs");
+    container.innerHTML = '';
+
+    const hasGroups = globalPaletteData && globalPaletteData.Groups && globalPaletteData.Groups.length > 0;
+    if (!hasGroups) {
+        container.style.display = 'none';
+        return;
     }
 
-    const total = paletteData.Palettes.length;
-    const start = currentPreviewPage * PREVIEW_PAGE_SIZE;
-    const end = Math.min(start + PREVIEW_PAGE_SIZE, total);
-    const canvasSize = 48;
+    container.style.display = 'flex';
 
-    // Clear preview area
+    // "All" tab
+    var allTab = document.createElement("button");
+    allTab.className = "btn btn-sm btn-outline-light rounded-pill active";
+    allTab.textContent = "All (" + globalPaletteData.Palettes.length + ")";
+    allTab.dataset.group = '__all__';
+    allTab.onclick = function() { selectGroup(null); };
+    container.appendChild(allTab);
+
+    for (var i = 0; i < globalPaletteData.Groups.length; i++) {
+        var g = globalPaletteData.Groups[i];
+        var tab = document.createElement("button");
+        tab.className = "btn btn-sm btn-outline-light rounded-pill";
+        tab.textContent = g.name + " (" + g.count + ")";
+        tab.dataset.group = g.name;
+        tab.onclick = (function(name) {
+            return function() { selectGroup(name); };
+        })(g.name);
+        container.appendChild(tab);
+    }
+}
+
+function selectGroup(groupName) {
+    currentGroupFilter = groupName;
+    currentPreviewPage = 0;
+
+    // Update active tab styling
+    var tabs = document.getElementById("group_tabs").children;
+    for (var i = 0; i < tabs.length; i++) {
+        var tabGroup = tabs[i].dataset.group;
+        if ((groupName === null && tabGroup === '__all__') || tabGroup === groupName) {
+            tabs[i].classList.add('active');
+        } else {
+            tabs[i].classList.remove('active');
+        }
+    }
+
+    // Update subtitle
+    if (groupName !== null) {
+        var filtered = getFilteredPalettes();
+        previewNameElement.textContent = globalPaletteData.Name + " \u2014 " + groupName + " (" + filtered.length + " gradient" + (filtered.length !== 1 ? "s" : "") + ")";
+    } else {
+        var total = globalPaletteData.Palettes.length;
+        previewNameElement.textContent = globalPaletteData.Name + " (" + total + " gradient" + (total !== 1 ? "s" : "") + ")";
+    }
+
+    renderPreviewPage();
+    updateExportControls();
+}
+
+function renderPreviewPage() {
+    // Remove existing pagination
+    var existingControls = document.getElementById("preview_pagination");
+    if (existingControls) existingControls.remove();
+
+    var palettes = getFilteredPalettes();
+    var total = palettes.length;
+    var start = currentPreviewPage * PREVIEW_PAGE_SIZE;
+    var end = Math.min(start + PREVIEW_PAGE_SIZE, total);
+    var canvasSize = 48;
+
     previewElement.textContent = '';
 
-    for (let i = start; i < end; i++) {
-        const canvasElement = document.createElement("canvas");
+    for (var i = start; i < end; i++) {
+        var canvasElement = document.createElement("canvas");
         canvasElement.width = canvasSize;
         canvasElement.height = canvasSize;
 
-        const ctx = canvasElement.getContext("2d");
+        var ctx = canvasElement.getContext("2d");
 
         // Checkerboard background
-        const rowCount = 8;
-        const columnCount = 8;
-        const w = canvasSize / columnCount;
-        const h = canvasSize / rowCount;
+        var rowCount = 8;
+        var columnCount = 8;
+        var w = canvasSize / columnCount;
+        var h = canvasSize / rowCount;
 
-        for (let y = 0; y < rowCount; y++) {
-            for (let x = 0; x < columnCount; x++) {
+        for (var y = 0; y < rowCount; y++) {
+            for (var x = 0; x < columnCount; x++) {
                 if ((x % 2 == 0 && y % 2 == 0) || (x % 2 != 0 && y % 2 != 0)) {
                     ctx.fillStyle = "#a0a0a0";
                 } else {
                     ctx.fillStyle = "#ffffff";
                 }
-
                 ctx.fillRect(x * w, y * h, w, h);
             }
         }
 
         ctx.translate(0.5, 0.5);
 
-        for (let j = 0; j < canvasSize; j++) {
-            const t = j / canvasSize;
+        for (var j = 0; j < canvasSize; j++) {
+            var t = j / canvasSize;
             ctx.beginPath();
             ctx.moveTo(0, j);
             ctx.lineTo(canvasSize, j);
 
-            const colour = gradientUtils.getColourFromGradient(paletteData.Palettes[i].Colours, t);
-            const colourString = 'rgba(' + (colour.Red * 255.0).toFixed() + ',' + (colour.Green * 255.0).toFixed() + ',' + (colour.Blue * 255.0).toFixed() + ',' + colour.Alpha.toFixed(3) + ')';
+            var colour = gradientUtils.getColourFromGradient(palettes[i].Colours, t);
+            var colourString = 'rgba(' + (colour.Red * 255.0).toFixed() + ',' + (colour.Green * 255.0).toFixed() + ',' + (colour.Blue * 255.0).toFixed() + ',' + colour.Alpha.toFixed(3) + ')';
 
             ctx.strokeStyle = colourString;
             ctx.stroke();
         }
 
-        const gradientElement = document.createElement("div");
+        var gradientElement = document.createElement("div");
         gradientElement.classList.add("gradient-preview");
-        gradientElement.title = paletteData.Palettes[i].Name;
+        gradientElement.title = palettes[i].Name + (palettes[i].Group ? ' [' + palettes[i].Group + ']' : '');
         gradientElement.appendChild(canvasElement);
 
         previewElement.appendChild(gradientElement);
@@ -111,108 +157,111 @@ function renderPreviewPage(paletteData) {
 
     // Add pagination controls if needed
     if (total > PREVIEW_PAGE_SIZE) {
-        const totalPages = Math.ceil(total / PREVIEW_PAGE_SIZE);
-        const controls = document.createElement("div");
+        var totalPages = Math.ceil(total / PREVIEW_PAGE_SIZE);
+        var controls = document.createElement("div");
         controls.id = "preview_pagination";
         controls.className = "d-flex justify-content-center align-items-center gap-3 mt-3 w-100";
 
-        const prevBtn = document.createElement("button");
+        var prevBtn = document.createElement("button");
         prevBtn.className = "btn btn-sm btn-outline-light";
         prevBtn.textContent = "\u25C0 Previous";
         prevBtn.disabled = currentPreviewPage === 0;
-        prevBtn.onclick = function () {
+        prevBtn.onclick = function() {
             currentPreviewPage--;
-            renderPreviewPage(paletteData);
+            renderPreviewPage();
         };
 
-        const info = document.createElement("span");
+        var info = document.createElement("span");
         info.className = "text-light";
         info.textContent = "Page " + (currentPreviewPage + 1) + " of " + totalPages + " (" + (start + 1) + "\u2013" + end + " of " + total + ")";
 
-        const nextBtn = document.createElement("button");
+        var nextBtn = document.createElement("button");
         nextBtn.className = "btn btn-sm btn-outline-light";
         nextBtn.textContent = "Next \u25B6";
         nextBtn.disabled = currentPreviewPage >= totalPages - 1;
-        nextBtn.onclick = function () {
+        nextBtn.onclick = function() {
             currentPreviewPage++;
-            renderPreviewPage(paletteData);
+            renderPreviewPage();
         };
 
         controls.appendChild(prevBtn);
         controls.appendChild(info);
         controls.appendChild(nextBtn);
 
-        // Insert pagination after the preview, inside the card
         previewElement.parentElement.appendChild(controls);
     }
 }
 
-function toggleSplitControls() {
-    const enabled = document.getElementById('splitEnabled').checked;
-    const splitOptions = document.getElementById('split_options');
-    splitOptions.style.display = enabled ? 'flex' : 'none';
-    onSplitModeChange();
-}
+function updateExportControls() {
+    var hasGroups = globalPaletteData && globalPaletteData.Groups && globalPaletteData.Groups.length > 0;
+    var singleBtn = document.getElementById('export_single_btn');
+    var groupBtn = document.getElementById('export_group_btn');
+    var zipBtn = document.getElementById('export_zip_btn');
+    var singleLabel = document.getElementById('export_single_label');
+    var groupLabel = document.getElementById('export_group_label');
+    var zipLabel = document.getElementById('export_zip_label');
 
-function onSplitModeChange() {
-    const mode = document.getElementById('splitMode').value;
-    const splitSizeGroup = document.getElementById('split_size_group');
-    const splitGroupInfo = document.getElementById('split_group_info');
-
-    splitSizeGroup.style.display = mode === 'count' ? 'flex' : 'none';
-
-    if (mode === 'groups' && globalPaletteData && globalPaletteData.Groups) {
-        const lines = globalPaletteData.Groups.map(function(g) {
-            return g.name + ' (' + g.count + ')';
-        });
-        splitGroupInfo.textContent = lines.join(', ');
-        splitGroupInfo.style.display = 'block';
+    if (!hasGroups) {
+        // No groups — simple single-file export
+        singleBtn.style.display = '';
+        groupBtn.style.display = 'none';
+        zipBtn.style.display = 'none';
+        singleLabel.textContent = 'Download Affinity Palette';
+    } else if (currentGroupFilter === null) {
+        // "All" view — download everything + ZIP option
+        singleBtn.style.display = '';
+        groupBtn.style.display = 'none';
+        zipBtn.style.display = '';
+        singleLabel.textContent = 'Download All (' + globalPaletteData.Palettes.length + ' gradients)';
+        zipLabel.textContent = 'Download All Groups as ZIP (' + globalPaletteData.Groups.length + ' files)';
     } else {
-        splitGroupInfo.style.display = 'none';
-    }
-
-    updateDownloadLabel();
-}
-
-function updateDownloadLabel() {
-    const label = document.getElementById('download_label');
-    if (!globalPaletteData) return;
-
-    const splitEnabled = document.getElementById('splitEnabled').checked;
-    if (!splitEnabled) {
-        label.textContent = "Download Affinity Palette";
-        return;
-    }
-
-    const mode = document.getElementById('splitMode').value;
-    if (mode === 'groups' && globalPaletteData.Groups && globalPaletteData.Groups.length > 0) {
-        const fileCount = globalPaletteData.Groups.length;
-        label.textContent = "Download " + fileCount + " Affinity Palette" + (fileCount !== 1 ? "s" : "");
-    } else {
-        const splitSize = Math.max(1, parseInt(document.getElementById('splitSize').value) || 50);
-        const total = globalPaletteData.Palettes.length;
-        const fileCount = Math.ceil(total / splitSize);
-        label.textContent = "Download " + fileCount + " Affinity Palette" + (fileCount !== 1 ? "s" : "");
+        // Specific group — download this group + ZIP option
+        var filtered = getFilteredPalettes();
+        singleBtn.style.display = 'none';
+        groupBtn.style.display = '';
+        zipBtn.style.display = '';
+        groupLabel.textContent = 'Download "' + currentGroupFilter + '" (' + filtered.length + ' gradients)';
+        zipLabel.textContent = 'Download All Groups as ZIP (' + globalPaletteData.Groups.length + ' files)';
     }
 }
 
-function downloadPreviewedPalette() {
-    const splitEnabled = document.getElementById('splitEnabled').checked;
+// Download all gradients as a single .afpalette file
+function downloadAll() {
+    writeAffinityPalette(globalPaletteData);
+}
 
-    if (!splitEnabled) {
-        writeAffinityPalette(globalPaletteData);
-        return;
-    }
+// Download the currently selected group as a single .afpalette file
+function downloadCurrentGroup() {
+    if (!currentGroupFilter) return;
+    var filtered = getFilteredPalettes();
+    var safeName = currentGroupFilter.replace(/[<>:"\/\\|?*]/g, '_');
+    var partData = {
+        Name: globalPaletteData.Name + " - " + safeName,
+        Palettes: filtered
+    };
+    writeAffinityPalette(partData);
+}
 
-    const mode = document.getElementById('splitMode').value;
+// Download all groups as a ZIP archive with one .afpalette per group inside a folder
+async function downloadAllGroupsAsZip() {
+    if (!globalPaletteData || !globalPaletteData.Groups || globalPaletteData.Groups.length === 0) return;
 
-    if (mode === 'groups' && globalPaletteData.Groups && globalPaletteData.Groups.length > 0) {
-        // Split by groups: each group becomes a separate file
-        const groupedPalettes = {};
-        const groupOrder = [];
+    var zipBtn = document.getElementById('export_zip_btn');
+    var zipLabel = document.getElementById('export_zip_label');
+    var originalText = zipLabel.textContent;
+    zipBtn.disabled = true;
+    zipLabel.textContent = 'Generating ZIP...';
 
-        for (let i = 0; i < globalPaletteData.Palettes.length; i++) {
-            const group = globalPaletteData.Palettes[i].Group || '(Ungrouped)';
+    try {
+        var zip = new JSZip();
+        var folderName = globalPaletteData.Name;
+        var folder = zip.folder(folderName);
+
+        // Group palettes
+        var groupedPalettes = {};
+        var groupOrder = [];
+        for (var i = 0; i < globalPaletteData.Palettes.length; i++) {
+            var group = globalPaletteData.Palettes[i].Group || '(Ungrouped)';
             if (!groupedPalettes[group]) {
                 groupedPalettes[group] = [];
                 groupOrder.push(group);
@@ -220,36 +269,22 @@ function downloadPreviewedPalette() {
             groupedPalettes[group].push(globalPaletteData.Palettes[i]);
         }
 
-        for (let part = 0; part < groupOrder.length; part++) {
-            const groupName = groupOrder[part];
-            const safeName = groupName.replace(/[<>:"/\\|?*]/g, '_');
-            const partData = {
-                Name: globalPaletteData.Name + " - " + safeName,
+        for (var g = 0; g < groupOrder.length; g++) {
+            var groupName = groupOrder[g];
+            var safeName = groupName.replace(/[<>:"\/\\|?*]/g, '_');
+            var partData = {
+                Name: folderName + " - " + safeName,
                 Palettes: groupedPalettes[groupName]
             };
-
-            setTimeout(function() {
-                writeAffinityPalette(partData);
-            }, part * 500);
+            var buffer = buildAffinityPaletteBuffer(partData);
+            folder.file(safeName + ".afpalette", buffer);
         }
-    } else {
-        // Split by count
-        const splitSize = Math.max(1, parseInt(document.getElementById('splitSize').value) || 50);
-        const total = globalPaletteData.Palettes.length;
-        const fileCount = Math.ceil(total / splitSize);
 
-        for (let part = 0; part < fileCount; part++) {
-            const start = part * splitSize;
-            const end = Math.min(start + splitSize, total);
-            const partData = {
-                Name: globalPaletteData.Name + "_Part" + (part + 1),
-                Palettes: globalPaletteData.Palettes.slice(start, end)
-            };
-
-            setTimeout(function() {
-                writeAffinityPalette(partData);
-            }, part * 500);
-        }
+        var content = await zip.generateAsync({ type: "blob" });
+        saveFile(content, folderName + ".zip");
+    } finally {
+        zipBtn.disabled = false;
+        zipLabel.textContent = originalText;
     }
 }
 
