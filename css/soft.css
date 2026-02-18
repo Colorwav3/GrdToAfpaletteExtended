@@ -119,7 +119,7 @@ body::after {
     border-radius: var(--radius);
     backdrop-filter: blur(20px);
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     margin-bottom: 32px;
     transition: border-color var(--transition);
 }
@@ -132,6 +132,7 @@ body::after {
     background: var(--gradient-glow);
     pointer-events: none;
     opacity: 0.6;
+    overflow: hidden;
 }
 
 .soft-card:hover {
@@ -352,7 +353,8 @@ body::after {
     margin-bottom: 24px;
     max-height: 440px;
     overflow-y: auto;
-    padding: 8px;
+    overflow-x: hidden;
+    padding: 16px 12px;
     scrollbar-width: thin;
     scrollbar-color: rgba(168,85,247,0.25) transparent;
 }
@@ -380,17 +382,22 @@ body::after {
     border-radius: 10px !important;
     width: 54px !important;
     height: 54px !important;
-    overflow: hidden;
+    overflow: visible;
     transition: all var(--transition);
     cursor: default;
     position: relative;
 }
 
 .gradient-preview:hover {
-    border-color: rgba(168, 85, 247, 0.4) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
     z-index: 1;
     transform: scale(1.2);
-    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.2);
+}
+
+.gradient-preview:hover .gradient-glow {
+    opacity: 0.6;
+    filter: blur(12px) saturate(1.5);
+    transform: scale(1.35);
 }
 
 .gradient-preview canvas {
@@ -398,6 +405,18 @@ body::after {
     width: 100%;
     height: 100%;
     border-radius: 9px;
+}
+
+.gradient-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    opacity: 0;
+    filter: blur(8px) saturate(1.2);
+    transform: scale(1.15);
+    transition: all var(--transition);
+    pointer-events: none;
+    z-index: -1;
 }
 
 

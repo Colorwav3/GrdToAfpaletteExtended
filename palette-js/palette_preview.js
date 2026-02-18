@@ -142,9 +142,18 @@ function renderPreviewPage() {
             ctx.stroke();
         }
 
+        // Create blurred glow clone behind the gradient
+        var glowCanvas = document.createElement("canvas");
+        glowCanvas.width = canvasSize;
+        glowCanvas.height = canvasSize;
+        glowCanvas.className = "gradient-glow";
+        var glowCtx = glowCanvas.getContext("2d");
+        glowCtx.drawImage(canvasElement, 0, 0);
+
         var gradientElement = document.createElement("div");
         gradientElement.classList.add("gradient-preview");
         gradientElement.title = palettes[i].Name + (palettes[i].Group ? ' [' + palettes[i].Group + ']' : '');
+        gradientElement.appendChild(glowCanvas);
         gradientElement.appendChild(canvasElement);
 
         previewElement.appendChild(gradientElement);

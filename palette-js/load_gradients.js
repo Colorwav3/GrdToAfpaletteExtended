@@ -260,13 +260,13 @@ function parseGrdArrayBuffer(buffer, filenameWithoutExtension) {
             }
             else if (format == c_CMYC)
             {
-                i = GRDSkipToChunkInRange(dataView, i, c_Cyn, gradientEnd); i += 4;
+                i = GRDSkipToChunkInRange(dataView, i, c_Cyn, gradientEnd); i += 8; // Skip 'UntF' + '#Prc'
                 var cyan = dataView.getFloat64(i, false) / 100.0;
-                i = GRDSkipToChunkInRange(dataView, i, c_Mgnt, gradientEnd); i += 4;
+                i = GRDSkipToChunkInRange(dataView, i, c_Mgnt, gradientEnd); i += 8;
                 var magenta = dataView.getFloat64(i, false) / 100.0;
-                i = GRDSkipToChunkInRange(dataView, i, c_Ylw, gradientEnd); i += 4;
+                i = GRDSkipToChunkInRange(dataView, i, c_Ylw, gradientEnd); i += 8;
                 var yellow = dataView.getFloat64(i, false) / 100.0;
-                i = GRDSkipToChunkInRange(dataView, i, c_Blck, gradientEnd); i += 4;
+                i = GRDSkipToChunkInRange(dataView, i, c_Blck, gradientEnd); i += 8;
                 var black = dataView.getFloat64(i, false) / 100.0;
 
                 console.log("        CMYK C:" + cyan + " M:" + magenta + " Y:" + yellow + " K:" + black);
@@ -278,7 +278,7 @@ function parseGrdArrayBuffer(buffer, filenameWithoutExtension) {
             }
             else if (format == c_Grsc)
             {
-                i = GRDSkipToChunkInRange(dataView, i, c_Gry, gradientEnd); i += 4;
+                i = GRDSkipToChunkInRange(dataView, i, c_Gry, gradientEnd); i += 8; // Skip 'UntF' + '#Prc'
                 var gray = dataView.getFloat64(i, false) / 100.0;
 
                 console.log("        Greyscale: " + gray);
@@ -289,11 +289,11 @@ function parseGrdArrayBuffer(buffer, filenameWithoutExtension) {
             }
             else if (format == c_LbCl)
             {
-                i = GRDSkipToChunkInRange(dataView, i, c_Lmnc, gradientEnd); i += 4;
+                i = GRDSkipToChunkInRange(dataView, i, c_Lmnc, gradientEnd); i += 8; // Skip 'UntF' + '#Prc'
                 var labL = dataView.getFloat64(i, false);
-                i = GRDSkipToChunkInRange(dataView, i, c_A_Ch, gradientEnd); i += 4;
+                i = GRDSkipToChunkInRange(dataView, i, c_A_Ch, gradientEnd); i += 4; // Skip 'doub'
                 var labA = dataView.getFloat64(i, false);
-                i = GRDSkipToChunkInRange(dataView, i, c_B_Ch, gradientEnd); i += 4;
+                i = GRDSkipToChunkInRange(dataView, i, c_B_Ch, gradientEnd); i += 4; // Skip 'doub'
                 var labB = dataView.getFloat64(i, false);
 
                 console.log("        Lab L:" + labL + " a:" + labA + " b:" + labB);
