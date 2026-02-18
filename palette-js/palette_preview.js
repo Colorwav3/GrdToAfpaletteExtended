@@ -1,6 +1,7 @@
 
 let globalPaletteData;
 let currentGroupFilter = null; // null = all, string = group name
+let currentExportFormat = 'afpalette'; // default export format
 
 const previewElement = document.getElementById("palette_preview");
 const previewNameElement = document.getElementById("palette_preview_name");
@@ -30,8 +31,8 @@ function previewPalette(paletteData) {
     renderPreviewPage();
     updateExportControls();
 
-    uploadElement.style.display = 'none';
-    downloadElement.style.display = 'block';
+    uploadElement.classList.add('hidden');
+    downloadElement.classList.remove('hidden');
 }
 
 function buildGroupTabs() {
@@ -48,7 +49,7 @@ function buildGroupTabs() {
 
     // "All" tab
     var allTab = document.createElement("button");
-    allTab.className = "btn btn-sm btn-outline-light rounded-pill active";
+    allTab.className = "group-tab active";
     allTab.textContent = "All (" + globalPaletteData.Palettes.length + ")";
     allTab.dataset.group = '__all__';
     allTab.onclick = function() { selectGroup(null); };
@@ -57,7 +58,7 @@ function buildGroupTabs() {
     for (var i = 0; i < globalPaletteData.Groups.length; i++) {
         var g = globalPaletteData.Groups[i];
         var tab = document.createElement("button");
-        tab.className = "btn btn-sm btn-outline-light rounded-pill";
+        tab.className = "group-tab";
         tab.textContent = g.name + " (" + g.count + ")";
         tab.dataset.group = g.name;
         tab.onclick = (function(name) {
@@ -96,19 +97,13 @@ function selectGroup(groupName) {
 }
 
 function renderPreviewPage() {
-    // Remove existing pagination
-    var existingControls = document.getElementById("preview_pagination");
-    if (existingControls) existingControls.remove();
-
     var palettes = getFilteredPalettes();
     var total = palettes.length;
-    var start = currentPreviewPage * PREVIEW_PAGE_SIZE;
-    var end = Math.min(start + PREVIEW_PAGE_SIZE, total);
     var canvasSize = 48;
 
     previewElement.textContent = '';
 
-    for (var i = start; i < end; i++) {
+    for (var i = 0; i < total; i++) {
         var canvasElement = document.createElement("canvas");
         canvasElement.width = canvasSize;
         canvasElement.height = canvasSize;
@@ -154,42 +149,6 @@ function renderPreviewPage() {
 
         previewElement.appendChild(gradientElement);
     }
-
-    // Add pagination controls if needed
-    if (total > PREVIEW_PAGE_SIZE) {
-        var totalPages = Math.ceil(total / PREVIEW_PAGE_SIZE);
-        var controls = document.createElement("div");
-        controls.id = "preview_pagination";
-        controls.className = "d-flex justify-content-center align-items-center gap-3 mt-3 w-100";
-
-        var prevBtn = document.createElement("button");
-        prevBtn.className = "btn btn-sm btn-outline-light";
-        prevBtn.textContent = "\u25C0 Previous";
-        prevBtn.disabled = currentPreviewPage === 0;
-        prevBtn.onclick = function() {
-            currentPreviewPage--;
-            renderPreviewPage();
-        };
-
-        var info = document.createElement("span");
-        info.className = "text-light";
-        info.textContent = "Page " + (currentPreviewPage + 1) + " of " + totalPages + " (" + (start + 1) + "\u2013" + end + " of " + total + ")";
-
-        var nextBtn = document.createElement("button");
-        nextBtn.className = "btn btn-sm btn-outline-light";
-        nextBtn.textContent = "Next \u25B6";
-        nextBtn.disabled = currentPreviewPage >= totalPages - 1;
-        nextBtn.onclick = function() {
-            currentPreviewPage++;
-            renderPreviewPage();
-        };
-
-        controls.appendChild(prevBtn);
-        controls.appendChild(info);
-        controls.appendChild(nextBtn);
-
-        previewElement.parentElement.appendChild(controls);
-    }
 }
 
 function updateExportControls() {
@@ -202,35 +161,32 @@ function updateExportControls() {
     var zipLabel = document.getElementById('export_zip_label');
 
     if (!hasGroups) {
-        // No groups — simple single-file export
-        singleBtn.style.display = '';
-        groupBtn.style.display = 'none';
-        zipBtn.style.display = 'none';
-        singleLabel.textContent = 'Download Affinity Palette';
+        singleBtn.classList.remove('hidden');
+        groupBtn.classList.add('hidden');
+        zipBtn.classList.add('hidden');
+        singleLabel.textContent = 'Download Palette';
     } else if (currentGroupFilter === null) {
-        // "All" view — download everything + ZIP option
-        singleBtn.style.display = '';
-        groupBtn.style.display = 'none';
-        zipBtn.style.display = '';
-        singleLabel.textContent = 'Download All (' + globalPaletteData.Palettes.length + ' gradients)';
-        zipLabel.textContent = 'Download All Groups as ZIP (' + globalPaletteData.Groups.length + ' files)';
+        singleBtn.classList.remove('hidden');
+        groupBtn.classList.add('hidden');
+        zipBtn.classList.remove('hidden');
+        singleLabel.textContent = 'Download All (' + globalPaletteData.Palettes.length + ')';
+        zipLabel.textContent = 'All Groups as ZIP (' + globalPaletteData.Groups.length + ' files)';
     } else {
-        // Specific group — download this group + ZIP option
         var filtered = getFilteredPalettes();
-        singleBtn.style.display = 'none';
-        groupBtn.style.display = '';
-        zipBtn.style.display = '';
-        groupLabel.textContent = 'Download "' + currentGroupFilter + '" (' + filtered.length + ' gradients)';
-        zipLabel.textContent = 'Download All Groups as ZIP (' + globalPaletteData.Groups.length + ' files)';
+        singleBtn.classList.add('hidden');
+        groupBtn.classList.remove('hidden');
+        zipBtn.classList.remove('hidden');
+        groupLabel.textContent = 'Download "' + currentGroupFilter + '" (' + filtered.length + ')';
+        zipLabel.textContent = 'All Groups as ZIP (' + globalPaletteData.Groups.length + ' files)';
     }
 }
 
-// Download all gradients as a single .afpalette file
+// Download all gradients in the selected format
 function downloadAll() {
-    writeAffinityPalette(globalPaletteData);
+    exportInFormat(globalPaletteData);
 }
 
-// Download the currently selected group as a single .afpalette file
+// Download the currently selected group
 function downloadCurrentGroup() {
     if (!currentGroupFilter) return;
     var filtered = getFilteredPalettes();
@@ -239,10 +195,95 @@ function downloadCurrentGroup() {
         Name: globalPaletteData.Name + " - " + safeName,
         Palettes: filtered
     };
-    writeAffinityPalette(partData);
+    exportInFormat(partData);
 }
 
-// Download all groups as a ZIP archive with one .afpalette per group inside a folder
+function exportInFormat(data) {
+    switch (currentExportFormat) {
+        case 'afpalette':
+            writeAffinityPalette(data);
+            break;
+        case 'grd':
+            writePhotoshopGradient(data);
+            break;
+        case 'ggr':
+            if (data.Palettes.length === 1) {
+                writeGimpGradient(data.Palettes[0].Name, data.Palettes[0].Colours, 'ggr');
+            } else {
+                writeGgrZip(data, 'ggr');
+            }
+            break;
+        case 'kgr':
+            if (data.Palettes.length === 1) {
+                writeGimpGradient(data.Palettes[0].Name, data.Palettes[0].Colours, 'kgr');
+            } else {
+                writeGgrZip(data, 'kgr');
+            }
+            break;
+        case 'svg':
+            writeSvgGradient(data);
+            break;
+        case 'css':
+            writeCssGradient(data);
+            break;
+        default:
+            writeAffinityPalette(data);
+    }
+}
+
+function selectExportFormat(format) {
+    currentExportFormat = format;
+
+    // Update active button
+    var btns = document.querySelectorAll('.format-btn');
+    for (var i = 0; i < btns.length; i++) {
+        if (btns[i].dataset.format === format) {
+            btns[i].classList.add('active');
+        } else {
+            btns[i].classList.remove('active');
+        }
+    }
+
+    // Update export button labels
+    updateExportControls();
+}
+
+// Build file data for a single group in the selected export format
+// Returns { data: ArrayBuffer|string|Blob, ext: string }
+function buildExportForGroup(partData) {
+    switch (currentExportFormat) {
+        case 'afpalette':
+            return { data: buildAffinityPaletteBuffer(partData), ext: '.afpalette' };
+        case 'grd':
+            return { data: buildGrdBuffer(partData), ext: '.grd' };
+        case 'ggr':
+            if (partData.Palettes.length === 1) {
+                return { data: buildGgrText(partData.Palettes[0].Name, partData.Palettes[0].Colours), ext: '.ggr' };
+            }
+            var ggrParts = [];
+            for (var gi = 0; gi < partData.Palettes.length; gi++) {
+                ggrParts.push(buildGgrText(partData.Palettes[gi].Name, partData.Palettes[gi].Colours));
+            }
+            return { data: ggrParts.join('\n'), ext: '.ggr' };
+        case 'kgr':
+            if (partData.Palettes.length === 1) {
+                return { data: buildGgrText(partData.Palettes[0].Name, partData.Palettes[0].Colours), ext: '.kgr' };
+            }
+            var kgrParts = [];
+            for (var ki = 0; ki < partData.Palettes.length; ki++) {
+                kgrParts.push(buildGgrText(partData.Palettes[ki].Name, partData.Palettes[ki].Colours));
+            }
+            return { data: kgrParts.join('\n'), ext: '.kgr' };
+        case 'svg':
+            return { data: buildSvgGradients(partData), ext: '.svg' };
+        case 'css':
+            return { data: buildCssGradients(partData), ext: '.css' };
+        default:
+            return { data: buildAffinityPaletteBuffer(partData), ext: '.afpalette' };
+    }
+}
+
+// Download all groups as a ZIP archive with one file per group
 async function downloadAllGroupsAsZip() {
     if (!globalPaletteData || !globalPaletteData.Groups || globalPaletteData.Groups.length === 0) return;
 
@@ -276,8 +317,8 @@ async function downloadAllGroupsAsZip() {
                 Name: folderName + " - " + safeName,
                 Palettes: groupedPalettes[groupName]
             };
-            var buffer = buildAffinityPaletteBuffer(partData);
-            folder.file(safeName + ".afpalette", buffer);
+            var result = buildExportForGroup(partData);
+            folder.file(safeName + result.ext, result.data);
         }
 
         var content = await zip.generateAsync({ type: "blob" });
@@ -289,6 +330,6 @@ async function downloadAllGroupsAsZip() {
 }
 
 function convertAnotherPalette() {
-    uploadElement.style.display = 'block';
-    downloadElement.style.display = 'none';
+    uploadElement.classList.remove('hidden');
+    downloadElement.classList.add('hidden');
 }

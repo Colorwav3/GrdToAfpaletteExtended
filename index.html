@@ -1,103 +1,140 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Gradient to Afpalette Converter</title>
-    <link rel="stylesheet" href="css/bootstrap.min.css">
-    <style>
-        body {
-            background: url(img/bg.svg) center center fixed;
-            background-size: cover;
-        }
-
-        .gradient-preview {
-            margin: 3px;
-            border: 1px solid white;
-            width: 50px;
-            height: 50px;
-        }
-
-        .icon {
-            width: 20px;
-            aspect-ratio: 1 / 1;
-        }
-    </style>
+    <title>Gradient Converter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/soft.css">
 </head>
 
 <body>
-    <div class="container">
-        <div class="d-flex flex-column min-vh-100 justify-content-center align-items-center">
+    <div class="app-wrapper">
 
-            <div class="card" id="upload_card">
-                <div class="card-body p-5">
-                    <div class="card-text mb-4">
-                        <span>Convert Adobe <tt>.grd</tt> or GIMP/Krita <tt>.ggr</tt>/<tt>.kgr</tt> gradient files into an Affinity <tt>.afpalette</tt> file.</span>
-                        <ul>
-                            <li>Only RGB and HSB/HSV gradients are supported.</li>
-                        </ul>
-                        <p id="errors" class="alert alert-warning" style="display:none"></p>
+        <!-- Header -->
+        <header class="app-header">
+            <h1>Gradient Converter</h1>
+            <div class="subtitle">Multi-format gradient conversion</div>
+        </header>
+
+        <!-- Upload Card -->
+        <div class="soft-card" id="upload_card">
+            <div class="soft-card-body">
+                <div class="upload-info">
+                    <p>Convert gradient files between Photoshop, GIMP, Krita, Affinity, SVG, CSS and CPTCITY formats.</p>
+
+                    <div class="format-tags">
+                        <span class="format-tag input-tag">.grd</span>
+                        <span class="format-tag input-tag">.ggr</span>
+                        <span class="format-tag input-tag">.kgr</span>
+                        <span class="format-tag input-tag">.svg</span>
+                        <span class="format-tag input-tag">.css</span>
+                        <span class="format-tag input-tag">.cpt</span>
                     </div>
-                    <div class="d-flex justify-content-center">
-                        <label class="btn btn-light btn-lg mb-0">
-                            <span>Convert Gradient File...</span>
-                            <input id="paletteFile" type="file" accept=".grd,.ggr,.kgr" hidden />
-                        </label>
-                    </div>
+                    <div class="upload-note">Import from any format above, then export to any target format</div>
+                    <p id="errors" class="error-banner"></p>
+                </div>
+                <div class="text-center">
+                    <label class="btn-primary-soft">
+                        <svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <span>Choose File</span>
+                        <input id="paletteFile" type="file" accept=".grd,.ggr,.kgr,.svg,.css,.cpt" hidden />
+                    </label>
                 </div>
             </div>
-
-            <div class="card" id="download_card" style="display:none;">
-                <div class="card-body p-5">
-                    <h5 class="card-title mb-3 text-center" id="palette_preview_name"></h5>
-
-                    <!-- Group navigation tabs -->
-                    <div id="group_tabs" class="d-flex flex-wrap gap-1 justify-content-center mb-3" style="display:none; max-height:160px; overflow-y:auto; padding:2px;"></div>
-
-                    <div class="card-text mb-4">
-                        <div id="palette_preview" class="d-flex flex-wrap justify-content-center"></div>
-                    </div>
-
-                    <!-- Export controls -->
-                    <div class="d-flex flex-column align-items-center gap-2 mb-3">
-                        <button class="btn btn-light btn-lg" id="export_single_btn" onclick="downloadAll()">
-                            <img class="icon me-2" src="img/download.svg" />
-                            <span id="export_single_label">Download Affinity Palette</span>
-                        </button>
-
-                        <button class="btn btn-light btn-lg" id="export_group_btn" onclick="downloadCurrentGroup()" style="display:none;">
-                            <img class="icon me-2" src="img/download.svg" />
-                            <span id="export_group_label">Download Group</span>
-                        </button>
-
-                        <button class="btn btn-outline-light" id="export_zip_btn" onclick="downloadAllGroupsAsZip()" style="display:none;">
-                            <span id="export_zip_label">Download All Groups as ZIP</span>
-                        </button>
-                    </div>
-
-                    <div class="d-flex justify-content-center">
-                        <a href="#" class="card-link text-light" onclick="convertAnotherPalette()">Convert Another File</a>
-                    </div>
-                </div>
-            </div>
-
-            <footer style="position: absolute; bottom: 50px;" class="text-light text-center">
-                <div class="mb-2">Original by <a href="https://mikestimpson.com" class="text-light">Mike Stimpson</a> &mdash; Extended by <a href="https://github.com/Colorwav3" class="text-light">Colorwav3</a></div>
-                <div><a href="https://github.com/Colorwav3/GrdToAfpaletteExtended" class="text-light">View the code on GitHub</a></div>
-            </footer>
-
         </div>
+
+        <!-- Download / Preview Card -->
+        <div class="soft-card hidden" id="download_card">
+            <div class="soft-card-body">
+                <div class="palette-title" id="palette_preview_name"></div>
+
+                <!-- Group Tabs -->
+                <div id="group_tabs" class="group-tabs"></div>
+
+                <!-- Preview Grid -->
+                <div id="palette_preview" class="preview-grid"></div>
+
+                <!-- Export Format Selector -->
+                <div class="soft-divider"></div>
+
+                <div class="export-format-section">
+                    <div class="export-format-label">Export as</div>
+                    <div class="export-format-grid">
+                        <button class="format-btn active" data-format="afpalette" onclick="selectExportFormat('afpalette')">
+                            <span class="format-btn-ext">.afpalette</span>
+                            <span class="format-btn-app">Affinity</span>
+                        </button>
+                        <button class="format-btn" data-format="grd" onclick="selectExportFormat('grd')">
+                            <span class="format-btn-ext">.grd</span>
+                            <span class="format-btn-app">Photoshop</span>
+                        </button>
+                        <button class="format-btn" data-format="ggr" onclick="selectExportFormat('ggr')">
+                            <span class="format-btn-ext">.ggr</span>
+                            <span class="format-btn-app">GIMP</span>
+                        </button>
+                        <button class="format-btn" data-format="kgr" onclick="selectExportFormat('kgr')">
+                            <span class="format-btn-ext">.kgr</span>
+                            <span class="format-btn-app">Krita</span>
+                        </button>
+                        <button class="format-btn" data-format="svg" onclick="selectExportFormat('svg')">
+                            <span class="format-btn-ext">.svg</span>
+                            <span class="format-btn-app">SVG</span>
+                        </button>
+                        <button class="format-btn" data-format="css" onclick="selectExportFormat('css')">
+                            <span class="format-btn-ext">.css</span>
+                            <span class="format-btn-app">CSS</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Export Controls -->
+                <div class="export-controls">
+                    <button class="btn-primary-soft" id="export_single_btn" onclick="downloadAll()">
+                        <svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        <span id="export_single_label">Download Palette</span>
+                    </button>
+
+                    <button class="btn-primary-soft hidden" id="export_group_btn" onclick="downloadCurrentGroup()">
+                        <svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        <span id="export_group_label">Download Group</span>
+                    </button>
+
+                    <button class="btn-ghost-soft hidden" id="export_zip_btn" onclick="downloadAllGroupsAsZip()">
+                        <span id="export_zip_label">Download All Groups as ZIP</span>
+                    </button>
+                </div>
+
+                <div class="soft-divider"></div>
+                <div class="text-center">
+                    <a class="back-link" onclick="convertAnotherPalette()">Convert Another</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <div class="footer-line">Original by <a href="https://mikestimpson.com">Mike Stimpson</a> · Extended by <a href="https://github.com/Colorwav3">Colorwav3</a></div>
+            <div class="footer-line"><a href="https://github.com/Colorwav3/GrdToAfpaletteExtended">Source on GitHub</a></div>
+            <div class="footer-glow"></div>
+        </footer>
+
     </div>
 
     <script src="js/jszip.min.js"></script>
     <script src="palette-js/load_gradients.js"></script>
     <script src="palette-js/load_afpalette.js"></script>
     <script src="palette-js/write_afpalette.js"></script>
+    <script src="palette-js/write_ggr.js"></script>
+    <script src="palette-js/write_grd.js"></script>
+    <script src="palette-js/write_svg.js"></script>
+    <script src="palette-js/write_css.js"></script>
     <script src="palette-js/gradient_utils.js"></script>
     <script src="palette-js/palette_preview.js"></script>
-    <script src="js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>
